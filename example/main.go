@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -16,14 +17,20 @@ func main() {
 	processor := process.New(driver)
 	driver.PrintHeader("Setting up concert")
 
-	processor.Run("Preparing show", "./test-scripts/noisy-good.sh")
-	processor.Run("Setting up stage", "./test-scripts/good-with-warn.sh")
+	wrapErr(processor.Run("Preparing show", "./test-scripts/noisy-good.sh"))
+	wrapErr(processor.Run("Setting up stage", "./test-scripts/good-with-warn.sh"))
 
 	driver.PrintHeader("Let the show begin")
 
-	processor.Run("Opening gates", "./test-scripts/good.sh")
-	processor.Run("Starting show", "./test-scripts/bad.sh")
-	processor.Run("Shouldn't run", "./test-scripts/good.sh")
+	wrapErr(processor.Run("Opening gates", "./test-scripts/good.sh"))
+	wrapErr(processor.Run("Starting show", "./test-scripts/bad.sh"))
+	wrapErr(processor.Run("Shouldn't run", "./test-scripts/good.sh"))
+}
+
+func wrapErr(e error) {
+	if e != nil {
+		log.Fatal(e)
+	}
 }
 
 /****************************

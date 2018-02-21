@@ -2,7 +2,7 @@ package process
 
 import (
 	"bufio"
-	"log"
+	"fmt"
 	"os/exec"
 	"sync"
 )
@@ -45,7 +45,7 @@ func New(driver Driver) *Processor {
 }
 
 // Run runs an external command and does something with the errors and output
-func (p *Processor) Run(task, cmdName string, cmdArgs ...string) {
+func (p *Processor) Run(task, cmdName string, cmdArgs ...string) error {
 	// attach the driver to respond to output
 	go p.attachDriver(task)
 	// run the command
@@ -54,11 +54,11 @@ func (p *Processor) Run(task, cmdName string, cmdArgs ...string) {
 	// set stdout and stderr to a pipe
 	cmdOut, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatalf("error creating pipe for stdout of command: %v", err)
+		return fmt.Errorf("error creating pipe for stdout: %v", err)
 	}
 	cmdErr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Fatalf("error creating pipe for stderr of command: %v", err)
+		return fmt.Errorf("error creating pipe for stderr: %v", err)
 	}
 
 	// create scanners for each pipe
@@ -87,7 +87,7 @@ func (p *Processor) Run(task, cmdName string, cmdArgs ...string) {
 
 	// start the command
 	if err = cmd.Start(); err != nil {
-		log.Fatalf("error starting command: %v", err)
+		return fmt.Errorf("error starting command: %v", err)
 	}
 
 	// wait for the listeners to drain their scanners
@@ -98,7 +98,7 @@ func (p *Processor) Run(task, cmdName string, cmdArgs ...string) {
 			// The program has exited with an exit code != 0
 			p.failure <- true
 		} else {
-			log.Fatalf("error waiting on command: %v", err)
+			return fmt.Errorf("error waiting on command: %v", err)
 		}
 	} else {
 		// signal that the process completed successfully
@@ -106,6 +106,7 @@ func (p *Processor) Run(task, cmdName string, cmdArgs ...string) {
 	}
 	// wait for the driver to handle all of the output
 	<-p.done
+	return nil
 }
 
 func (p *Processor) attachDriver(task string) {
@@ -129,4 +130,3 @@ jump:
 	}
 	p.done <- true
 }
-

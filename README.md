@@ -16,7 +16,9 @@ import "github.com/loganmac/process"
 func main() {
   driver := &Summarizer{} // something that implements process.Driver
   processor := process.New(driver)
-  processor.Run("list all files", "ls", "l", "a", "h")
+  if err := processor.Run("list all files", "ls", "l", "a", "h"); err != nil{
+    log.Fatal(err)
+  }
 }
 ```
 
