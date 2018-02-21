@@ -2,36 +2,13 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/loganmac/process"
 	"golang.org/x/crypto/ssh/terminal"
 )
-
-func main() {
-	driver := &Summarizer{}
-	processor := process.New(driver)
-	driver.PrintHeader("Setting up concert")
-
-	wrapErr(processor.Run("Preparing show", "./test-scripts/noisy-good.sh"))
-	wrapErr(processor.Run("Setting up stage", "./test-scripts/good-with-warn.sh"))
-
-	driver.PrintHeader("Let the show begin")
-
-	wrapErr(processor.Run("Opening gates", "./test-scripts/good.sh"))
-	wrapErr(processor.Run("Starting show", "./test-scripts/bad.sh"))
-	wrapErr(processor.Run("Shouldn't run", "./test-scripts/good.sh"))
-}
-
-func wrapErr(e error) {
-	if e != nil {
-		log.Fatal(e)
-	}
-}
 
 /****************************
 * SUMMARIZER PROCESS DRIVER *
@@ -40,10 +17,11 @@ func wrapErr(e error) {
 var (
 	// coloring and style
 	errorFmt         = color.New(color.FgHiRed)
-	successFmt       = color.New(color.FgHiGreen).Add(color.Bold)
+	successFmt       = color.New(color.FgHiGreen)
 	failureFmt       = color.New(color.FgHiRed).Add(color.Bold)
 	stackFmt         = color.New(color.FgHiRed).Add(color.Faint)
 	errorHeaderFmt   = color.New(color.FgHiRed).Add(color.Bold).Add(color.ReverseVideo)
+	successHeaderFmt = color.New(color.FgHiGreen).Add(color.Bold)
 	headerFmt        = color.New(color.FgHiMagenta).Add(color.Bold)
 	spinnerFmt       = color.New(color.FgHiYellow).Add(color.Bold)
 	spinnerPromptFmt = color.New(color.FgHiYellow).Add(color.Bold).Add(color.Underline)
@@ -51,14 +29,9 @@ var (
 	headerIndent = strings.Repeat(" ", 2)
 	taskIndent   = strings.Repeat(" ", 4)
 	outputIndent = strings.Repeat(" ", 6)
-	// terminal sizing
+
 	termWidth, termHeight, _ = terminal.GetSize(0)
 	lineWidth                = termWidth - 7
-	// spinner
-	taskSpinner       = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	taskSpinnerLength = len(taskSpinner)
-	taskSuccess       = "✓"
-	taskFailure       = "✖"
 )
 
 // Summarizer is a driver that implements `process.driver`
@@ -71,6 +44,9 @@ type Summarizer struct {
 
 // Initialize is called when a display driver is first attached
 func (d *Summarizer) Initialize(task string) {
+	if (len(task) + 1) > lineWidth {
+		task = task[:lineWidth-3] + "..."
+	}
 	d.taskName = task
 	d.stack = []string{}
 	d.spinnerPosition = 0
@@ -90,7 +66,7 @@ func (d *Summarizer) HandleOut(msg string) {
 	d.stack = append(d.stack, msg)
 	cursorUp(1)
 	if (len(msg) + 1) > lineWidth {
-		msg = msg[:lineWidth]
+		msg = msg[:lineWidth-3] + "..."
 	}
 	fmt.Println(clear(outputIndent + msg))
 }
@@ -101,7 +77,7 @@ func (d *Summarizer) HandleErr(msg string) {
 	d.stack = append(d.stack, msg)
 	cursorUp(1)
 	if (len(msg) + 1) > lineWidth {
-		msg = msg[:lineWidth]
+		msg = msg[:lineWidth-3] + "..."
 	}
 	errorFmt.Println(clear(outputIndent + msg))
 }
@@ -111,6 +87,7 @@ func (d *Summarizer) HandleSuccess() {
 	cursorUp(2)
 	str := fmt.Sprintf("%s%s %s", taskIndent, taskSuccess, d.taskName)
 	successFmt.Println(clear(str))
+	clearLine()
 }
 
 // HandleFailure is called when a process exits with a bad exit code
@@ -136,6 +113,13 @@ func (d *Summarizer) PrintHeader(text string) {
 	printClearLine()
 }
 
+// PrintSuccess is used to print task success messages for this driver
+func (d *Summarizer) PrintSuccess(text string) {
+	printClearLine()
+	successHeaderFmt.Println(clear(headerIndent + text))
+	printClearLine()
+}
+
 // Prints and updates the spinner
 func (d *Summarizer) reprintSpinner() {
 	cursorUp(2)
@@ -151,20 +135,4 @@ func (d *Summarizer) printSpinner() {
 		d.spinnerPosition++
 		d.lastSpin = time.Now()
 	}
-}
-
-func getSpinner(pos int) string {
-	return taskSpinner[pos%taskSpinnerLength]
-}
-
-func clear(s string) string {
-	return fmt.Sprintf("\033[2K%s", s)
-}
-
-func printClearLine() {
-	fmt.Println("\033[2K")
-}
-
-func cursorUp(n int) {
-	fmt.Printf("\033[%dA", n)
 }
