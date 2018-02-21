@@ -1,0 +1,22 @@
+############
+# OS Files #
+############
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+################
+# All the logs #
+################
+*.log
+
+#####################
+# Bin, Dist, Vendor #
+#####################
+bin/
+dist/
+vendor/
+
+
